@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Pick Me Game (Realtime)</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .layout {
+      display: flex;
+      gap: 16px;
+      width: 1100px;
+      max-width: 100%;
+    }
+    .container {
+      flex: 3;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px 24px 28px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .admin-panel {
+      flex: 1.4;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 16px 18px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      display: none;
+      align-self: flex-start;
+    }
+    h1 { margin-top: 0; text-align: center; color: #333; }
+    h2 { margin-top: 0; font-size: 18px; margin-bottom: 10px; }
+    .row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+    .col { flex: 1; min-width: 220px; }
+    label { display: block; font-size: 14px; margin-bottom: 4px; color: #555; }
+    input[type="text"], input[type="number"] {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid #ccc; font-size: 14px;
+    }
+    button {
+      padding: 9px 14px; border-radius: 6px; border: none;
+      cursor: pointer; font-weight: 600; font-size: 14px; margin-right: 8px;
+    }
+    button.primary { background: #2f80ed; color: #fff; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .card {
+      border-radius: 10px; padding: 12px 14px;
+      background: #fafafa; border: 1px solid #e2e2e2;
+      margin-bottom: 12px; font-size: 14px;
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr));
+      gap: 10px; font-size: 14px;
+    }
+    .stat { padding: 8px 10px; background: #f9f9f9; border-radius: 8px; border: 1px solid #e3e3e3; }
+    .stat .label { display:block; color:#777; font-size:12px; margin-bottom:2px; }
+    .players-table { width:100%; border-collapse:collapse; font-size:14px; margin-top:4px; }
+    .players-table th, .players-table td {
+      border:1px solid #ddd; padding:6px 8px; text-align:left;
+    }
+    .players-table th { background:#f0f0f0; }
+    .info { font-size:13px; color:#777; margin-top:4px; }
+    .highlight { color:#e67e22; font-weight:bold; }
+    .winner-message { font-size:15px; margin-top:6px; }
+    .admin-note { font-size:12px; color:#777; margin-top:4px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- GAME -->
+  <div class="container">
+    <h1>Pick Me Game (Realtime)</h1>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label for="playerName">Tên người chơi:</label>
+          <input type="text" id="playerName" placeholder="Nhập tên của bạn (nhập 'admin' để mở bảng điều khiển)">
+        </div>
+        <div class="col" style="align-self:flex-end;">
+          <button class="primary" id="setPlayerBtn">Xác nhận / Đổi người chơi</button>
+        </div>
+      </div>
+      <div class="info">
+        Người chơi hiện tại: <span id="currentPlayerName" class="highlight">chưa chọn</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label for="betAmount">Số vàng muốn đặt:</label>
+          <input type="number" id="betAmount" min="1" value="10">
+        </div>
+        <div class="col" style="align-self:flex-end;">
+          <button class="primary" id="betBtn">Đặt vàng</button>
+        </div>
+      </div>
+      <div class="info">
+        Mỗi người có thể đặt nhiều lần trong cùng 1 ván, vàng sẽ được cộng dồn.
+      </div>
+    </div>
+
+    <div class="card">
+      <div><strong>Người chơi may mắn ván trước:</strong>
+        <span id="lastWinner">chưa có</span>
+      </div>
+
+      <div class="stats-grid" style="margin-top:10px;">
+        <div class="stat">
+          <span class="label">Tổng số vàng (pot)</span>
+          <span id="totalGold">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Tổng số người tham gia</span>
+          <span id="totalPlayers">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Số vàng bạn đã tham gia</span>
+          <span id="myGold">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Xác suất trúng của bạn</span>
+          <span id="myChance">0.00%</span>
+        </div>
+        <div class="stat">
+          <span class="label">Thời gian trả kết quả</span>
+          <span id="timeRemaining">chưa bắt đầu</span>
+        </div>
+        <div class="stat">
+          <span class="label">Trạng thái ván</span>
+          <span id="roundStatus">Đang chờ đủ người (≥ 2)</span>
+        </div>
+      </div>
+
+      <div class="winner-message" id="winnerMessage"></div>
+    </div>
+
+    <div class="card">
+      <strong>Danh sách người chơi trong ván hiện tại:</strong>
+      <table class="players-table">
+        <thead>
+        <tr>
+          <th>#</th><th>Tên</th><th>Số vàng</th><th>Tỉ lệ thắng (%)</th>
+        </tr>
+        </thead>
+        <tbody id="playersTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="admin-panel" id="adminPanel">
+    <h2>⚙ Bảng điều khiển (Admin)</h2>
+
+    <div class="card">
+      <label for="configDuration">Thời gian mỗi ván (giây):</label>
+      <input type="number" id="configDuration" min="5" value="60">
+
+      <label for="configMinBet" style="margin-top:10px;">Min số vàng mỗi lần đặt:</label>
+      <input type="number" id="configMinBet" min="1" value="1">
+
+      <button class="primary" id="saveConfigBtn" style="margin-top:10px;">Lưu cấu hình</button>
+
+      <div class="admin-note">
+        • Thời gian mới áp dụng cho các ván tiếp theo.<br>
+        • Min vàng mới áp dụng ngay cho các lần đặt sau.
+      </div>
+    </div>
+
+    <div class="card" style="font-size:13px;">
+      <strong>Info:</strong><br>
+      • Cần tối thiểu 2 người có vàng &gt; 0 để ván bắt đầu.<br>
+      • Người thắng được chọn theo tỉ lệ: vàng cá nhân / tổng vàng.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const socket = io();
+
+  let currentPlayerName = null;
+  let latestState = null;
+
+  // DOM
+  const currentPlayerNameEl = document.getElementById('currentPlayerName');
+  const lastWinnerEl = document.getElementById('lastWinner');
+  const totalGoldEl = document.getElementById('totalGold');
+  const totalPlayersEl = document.getElementById('totalPlayers');
+  const myGoldEl = document.getElementById('myGold');
+  const myChanceEl = document.getElementById('myChance');
+  const timeRemainingEl = document.getElementById('timeRemaining');
+  const roundStatusEl = document.getElementById('roundStatus');
+  const playersTableBody = document.getElementById('playersTableBody');
+  const winnerMessageEl = document.getElementById('winnerMessage');
+  const adminPanelEl = document.getElementById('adminPanel');
+  const configDurationInput = document.getElementById('configDuration');
+  const configMinBetInput = document.getElementById('configMinBet');
+  const betAmountInput = document.getElementById('betAmount');
+
+  // nhận state từ server
+  socket.on('state', (state) => {
+    latestState = state;
+    renderState();
+  });
+
+  // nhận winner khi ván kết thúc
+  socket.on('winner', (data) => {
+    if (!data) {
+      winnerMessageEl.textContent = 'Không có ai đặt vàng, ván bị hủy.';
+    } else {
+      winnerMessageEl.textContent =
+        `🎉 Người thắng ván này là ${data.name},đã đặt ${data.bet}, ăn toàn bộ pot: ${data.pot} vàng!`;
+    }
+  });
+
+  function renderState() {
+    if (!latestState) return;
+    const { config, round } = latestState;
+
+    lastWinnerEl.textContent = round.lastWinner || 'chưa có';
+    totalGoldEl.textContent = round.totalGold;
+    totalPlayersEl.textContent = round.totalPlayers;
+
+    // tính thông tin cá nhân
+    let myGold = 0;
+    let myChance = 0;
+    if (currentPlayerName) {
+      const me = round.players.find(p => p.name === currentPlayerName);
+      if (me) {
+        myGold = me.gold;
+        if (round.totalGold > 0) {
+          myChance = (me.gold / round.totalGold) * 100;
+        }
+      }
+    }
+    myGoldEl.textContent = myGold;
+    myChanceEl.textContent = myChance.toFixed(2) + '%';
+
+    // thời gian còn lại
+    if (!round.startTime || !round.endTime || round.status === 'waiting') {
+      timeRemainingEl.textContent = 'chưa bắt đầu';
+      roundStatusEl.textContent =
+        `Đang chờ đủ người (≥ 2) để bắt đầu đếm ${config.betDurationSec} giây`;
+    } else {
+      const now = Math.floor(Date.now() / 1000);
+      let remain = round.endTime - now;
+      if (remain < 0) remain = 0;
+      timeRemainingEl.textContent = remain + ' giây';
+      roundStatusEl.textContent = 'Đang chạy...';
+    }
+
+    // render bảng người chơi
+    playersTableBody.innerHTML = '';
+    const sorted = [...round.players].filter(p => p.gold > 0)
+      .sort((a, b) => b.gold - a.gold);
+
+    sorted.forEach((p, idx) => {
+      const tr = document.createElement('tr');
+      const chance = round.totalGold > 0 ? (p.gold / round.totalGold) * 100 : 0;
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${p.name}</td>
+        <td>${p.gold}</td>
+        <td>${chance.toFixed(2)}%</td>
+      `;
+      playersTableBody.appendChild(tr);
+    });
+
+    // admin panel
+    if (currentPlayerName && currentPlayerName.toLowerCase() === 'admin') {
+      adminPanelEl.style.display = 'block';
+      configDurationInput.value = config.betDurationSec;
+      configMinBetInput.value = config.minBet;
+      betAmountInput.min = config.minBet;
+    } else {
+      adminPanelEl.style.display = 'none';
+      betAmountInput.min = config.minBet;
+    }
+  }
+
+  // setName
+  document.getElementById('setPlayerBtn').addEventListener('click', () => {
+    const name = document.getElementById('playerName').value.trim();
+    if (!name) {
+      alert('Hãy nhập tên người chơi trước.');
+      return;
+    }
+    currentPlayerName = name;
+    currentPlayerNameEl.textContent = currentPlayerName;
+    winnerMessageEl.textContent = '';
+    socket.emit('setName', name);
+    renderState();
+  });
+
+  // placeBet
+  document.getElementById('betBtn').addEventListener('click', () => {
+    if (!currentPlayerName) {
+      alert('Bạn phải nhập và xác nhận tên trước khi đặt vàng.');
+      return;
+    }
+    const val = parseInt(betAmountInput.value, 10);
+    if (isNaN(val)) return;
+    socket.emit('placeBet', val);
+  });
+
+  // admin save config
+  document.getElementById('saveConfigBtn').addEventListener('click', () => {
+    const dur = parseInt(configDurationInput.value, 10);
+    const minB = parseInt(configMinBetInput.value, 10);
+    socket.emit('saveConfig', {
+      betDurationSec: dur,
+      minBet: minB
+    });
+    alert('Đã gửi cấu hình mới lên server');
+  });
+</script>
+</body>
+</html>

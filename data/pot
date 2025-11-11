@@ -1,0 +1,1 @@
+{"type":"round","finishedAt":1762875917,"configAtRound":{"betDurationSec":5,"minBet":1},"startTime":1762875912,"endTime":1762875917,"actualWaitSec":5,"totalGold":20,"players":[{"name":"1","gold":10},{"name":"admin","gold":10}],"winner":{"name":"admin","bet":10,"pot":20}}

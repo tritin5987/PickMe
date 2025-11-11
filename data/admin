@@ -1,0 +1,1 @@
+{"type":"admin_config_change","at":1762875906,"admin":"admin","oldConfig":{"betDurationSec":60,"minBet":1},"newConfig":{"betDurationSec":5,"minBet":1}}
