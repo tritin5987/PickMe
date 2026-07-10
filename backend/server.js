@@ -1,5 +1,5 @@
 import './logger.js';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { networkInterfaces } from 'os';
 import {
   verifySessionToken,
@@ -166,6 +166,13 @@ const server = Bun.serve({
             });
           }
 
+          if (username.toLowerCase() === 'admin') {
+            return new Response(JSON.stringify({ success: false, error: 'Không được phép đăng ký tên tài khoản admin' }), {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
           if (checkUserExists(username)) {
             return new Response(JSON.stringify({ success: false, error: 'Tên đăng nhập đã được sử dụng' }), {
               status: 400,
@@ -305,7 +312,14 @@ const server = Bun.serve({
       filePath = '/index.html';
     }
 
-    const staticPath = join(import.meta.dir, '..', 'frontend', filePath);
+    const frontendDir = resolve(join(import.meta.dir, '..', 'frontend'));
+    const staticPath = resolve(frontendDir, '.' + filePath);
+
+    // Prevent Path Traversal attacks
+    if (!staticPath.startsWith(frontendDir)) {
+      return new Response('Access Denied', { status: 403 });
+    }
+
     const file = Bun.file(staticPath);
     if (await file.exists()) {
       return new Response(file);

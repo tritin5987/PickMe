@@ -107,6 +107,9 @@ export function checkUserExists(username) {
 }
 
 export async function registerUser(username, password) {
+  if (username.toLowerCase() === 'admin') {
+    throw new Error("Không được phép đăng ký tên tài khoản admin");
+  }
   const hash = await Bun.password.hash(password);
   db.query("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(username, hash);
   const user = db.query("SELECT id, username, balance FROM users WHERE username = ?").get(username);
