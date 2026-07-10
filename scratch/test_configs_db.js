@@ -11,9 +11,7 @@ if (configs.DEFAULT_MIN_BET !== "10000") {
 if (configs.DEFAULT_BET_DURATION !== "60") {
   throw new Error(`Expected DEFAULT_BET_DURATION to be 60, got ${configs.DEFAULT_BET_DURATION}`);
 }
-if (configs.ADMIN_PASSWORD !== "123321") {
-  throw new Error(`Expected ADMIN_PASSWORD to be 123321, got ${configs.ADMIN_PASSWORD}`);
-}
+
 
 console.log("Updating DEFAULT_MIN_BET to 20000 in DB...");
 updateDbConfig("DEFAULT_MIN_BET", "20000");

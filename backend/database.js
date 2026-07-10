@@ -71,27 +71,29 @@ if (!process.env.DEFAULT_BET_DURATION) {
 
 seedConfig("DEFAULT_MIN_BET", process.env.DEFAULT_MIN_BET);
 seedConfig("DEFAULT_BET_DURATION", process.env.DEFAULT_BET_DURATION);
-seedConfig("ADMIN_PASSWORD", process.env.ADMIN_PASSWORD);
 
-// Tạo tài khoản admin mặc định dựa trên cấu hình database
+// Tạo tài khoản admin mặc định dựa trên cấu hình environment
 const seedAdmin = async () => {
   try {
-    const adminPassRow = db.query("SELECT value FROM configs WHERE key = 'ADMIN_PASSWORD'").get();
-    const adminPassword = adminPassRow ? adminPassRow.value : null;
+    const adminPassword = process.env.ADMIN_PASSWORD;
     if (!adminPassword) {
-      throw new Error("ADMIN_PASSWORD config is not defined in configs table!");
+      throw new Error("ADMIN_PASSWORD environment variable is not defined in .env!");
     }
 
-    const adminExists = db.query("SELECT 1 FROM users WHERE username = 'admin'").get();
-    if (!adminExists) {
+    const adminRow = db.query("SELECT password_hash FROM users WHERE username = 'admin'").get();
+    if (!adminRow) {
       const adminPasswordHash = await Bun.password.hash(adminPassword);
       db.query("INSERT INTO users (username, password_hash) VALUES (?, ?)").run("admin", adminPasswordHash);
-      console.log(`Đã khởi tạo tài khoản admin mặc định: admin / ${adminPassword}`);
+      console.log("Đã khởi tạo tài khoản admin mặc định từ .env thành công.");
     } else {
-      // Luôn đồng bộ mật khẩu admin trong database để khớp với ADMIN_PASSWORD ở configs
-      const adminPasswordHash = await Bun.password.hash(adminPassword);
-      db.query("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(adminPasswordHash);
-      console.log(`Đã đồng bộ mật khẩu admin với configs thành công: admin / ${adminPassword}`);
+      // Kiểm tra xem mật khẩu trong .env có khớp với hash trong DB không
+      const matches = await Bun.password.verify(adminPassword, adminRow.password_hash);
+      if (!matches) {
+        // Cập nhật hash mới nếu người dùng thay đổi cấu hình trong .env
+        const adminPasswordHash = await Bun.password.hash(adminPassword);
+        db.query("UPDATE users SET password_hash = ? WHERE username = 'admin'").run(adminPasswordHash);
+        console.log("Đã đồng bộ mật khẩu admin thành công dựa trên cấu hình .env mới.");
+      }
     }
   } catch (err) {
     console.error("Lỗi khởi tạo tài khoản admin:", err);
