@@ -88,6 +88,21 @@ checkNgrokTunnel();
 // Danh sách các kết nối WebSocket đang hoạt động
 const activeConnections = new Map(); // socket.data.id -> ws
 
+function disconnectUserSockets(username) {
+  const lowercaseUsername = username.toLowerCase();
+  for (const [id, ws] of activeConnections.entries()) {
+    if (ws.data.name && ws.data.name.toLowerCase() === lowercaseUsername) {
+      console.log(`Force closing WebSocket connection ${id} for user: ${username} due to session revocation/password change.`);
+      ws.send(JSON.stringify({ type: 'error', message: 'Phiên đăng nhập của bạn đã hết hạn hoặc mật khẩu đã thay đổi. Vui lòng đăng nhập lại.' }));
+      setTimeout(() => {
+        try {
+          ws.close();
+        } catch (e) {}
+      }, 100);
+    }
+  }
+}
+
 // --- Phát sóng trạng thái ván đấu ---
 function broadcastState() {
   recalcTotalGold();
@@ -279,6 +294,8 @@ const server = Bun.serve({
             });
           }
 
+          disconnectUserSockets(session.username);
+
           return new Response(JSON.stringify({ success: true, message: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.' }), {
             headers: { 'Content-Type': 'application/json' }
           });
@@ -302,7 +319,9 @@ const server = Bun.serve({
       const success = serverInstance.upgrade(req, {
         data: {
           id: crypto.randomUUID().slice(0, 8),
-          name: session.username
+          name: session.username,
+          msgCount: 0,
+          lastReset: Date.now()
         }
       });
       if (success) return undefined;
@@ -366,12 +385,24 @@ const server = Bun.serve({
     },
     async message(ws, message) {
       try {
+        // Tích hợp rate limit chống spam tin nhắn qua WebSocket
+        const now = Date.now();
+        if (!ws.data.lastReset || now - ws.data.lastReset > 1000) {
+          ws.data.msgCount = 0;
+          ws.data.lastReset = now;
+        }
+        ws.data.msgCount = (ws.data.msgCount || 0) + 1;
+        if (ws.data.msgCount > 10) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Tốc độ gửi yêu cầu quá nhanh, vui lòng đợi một lát!' }));
+          return;
+        }
+
         const data = JSON.parse(message);
 
         // 1. Đặt cược
         if (data.action === 'placeBet') {
           if (!ws.data.name) return;
-          const result = placeBet(ws.data.name, ws.data.id, data.amount);
+          const result = placeBet(ws.data.name, data.amount);
           if (!result.success) {
             ws.send(JSON.stringify({ type: 'error', message: result.message }));
             return;
@@ -427,6 +458,7 @@ const server = Bun.serve({
               return;
             }
             await resetUserPassword(username, newPassword);
+            disconnectUserSockets(username);
             console.log(`Admin reset password for user: ${username}`);
             ws.send(JSON.stringify({ type: 'reset_success', message: `Đã đổi mật khẩu cho '${username}' thành công!` }));
           }
@@ -441,11 +473,15 @@ const server = Bun.serve({
               ws.send(JSON.stringify({ type: 'add_balance_error', message: 'Tên tài khoản và số vàng cược hợp lệ phải lớn hơn 0!' }));
               return;
             }
+            if (amount > 1000000000000) {
+              ws.send(JSON.stringify({ type: 'add_balance_error', message: 'Số vàng cộng tối đa cho phép là 1,000,000,000,000!' }));
+              return;
+            }
             if (!checkUserExists(username)) {
               ws.send(JSON.stringify({ type: 'add_balance_error', message: `Người dùng '${username}' không tồn tại!` }));
               return;
             }
-            addUserBalance(username, amount);
+            addUserBalance(username, amount, 'admin_add');
             console.log(`Admin added ${amount} balance to user: ${username}`);
             ws.send(JSON.stringify({ type: 'add_balance_success', message: `Đã cộng ${amount.toLocaleString()} vàng cho '${username}' thành công!` }));
             broadcastState();

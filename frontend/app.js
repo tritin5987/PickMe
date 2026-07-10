@@ -2,8 +2,8 @@ const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 let socket = null;
 let isDisconnect = false;
 
-let token = sessionStorage.getItem('pickme_token') || null;
-let currentPlayerName = sessionStorage.getItem('pickme_username') || null;
+let token = localStorage.getItem('pickme_token') || null;
+let currentPlayerName = localStorage.getItem('pickme_username') || null;
 let latestState = null;
 let isDevMode = false;
 
@@ -162,7 +162,7 @@ function renderState() {
   // Hiển thị số dư tài khoản người chơi
   if (currentUserBalanceEl && typeof userBalance === 'number') {
     currentUserBalanceEl.textContent = userBalance.toLocaleString();
-    sessionStorage.setItem('pickme_balance', userBalance);
+    localStorage.setItem('pickme_balance', userBalance);
   }
 
   // Điều kiện hiển thị thông tin dựa theo phân quyền người chơi / admin
@@ -330,10 +330,10 @@ async function register() {
     if (data.success) {
       token = data.token;
       currentPlayerName = data.username;
-      sessionStorage.setItem('pickme_token', token);
-      sessionStorage.setItem('pickme_username', currentPlayerName);
+      localStorage.setItem('pickme_token', token);
+      localStorage.setItem('pickme_username', currentPlayerName);
       if (typeof data.balance === 'number') {
-        sessionStorage.setItem('pickme_balance', data.balance);
+        localStorage.setItem('pickme_balance', data.balance);
       }
       authUsernameInput.value = '';
       authPasswordInput.value = '';
@@ -367,10 +367,10 @@ async function login() {
     if (data.success) {
       token = data.token;
       currentPlayerName = data.username;
-      sessionStorage.setItem('pickme_token', token);
-      sessionStorage.setItem('pickme_username', currentPlayerName);
+      localStorage.setItem('pickme_token', token);
+      localStorage.setItem('pickme_username', currentPlayerName);
       if (typeof data.balance === 'number') {
-        sessionStorage.setItem('pickme_balance', data.balance);
+        localStorage.setItem('pickme_balance', data.balance);
       }
       authUsernameInput.value = '';
       authPasswordInput.value = '';
@@ -397,9 +397,9 @@ async function logout() {
   }
   token = null;
   currentPlayerName = null;
-  sessionStorage.removeItem('pickme_token');
-  sessionStorage.removeItem('pickme_username');
-  sessionStorage.removeItem('pickme_balance');
+  localStorage.removeItem('pickme_token');
+  localStorage.removeItem('pickme_username');
+  localStorage.removeItem('pickme_balance');
   updateAuthUI();
   window.location.reload();
 }

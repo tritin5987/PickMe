@@ -57,24 +57,31 @@ export function getActivePlayers() {
 }
 
 // Đặt cược
-export function placeBet(playerName, socketId, amount) {
+export function placeBet(playerName, amount) {
   let v = Number(amount);
   if (isNaN(v) || !Number.isInteger(v) || v < config.minBet) {
     return { success: false, message: `Số vàng cược phải là số nguyên và tối thiểu là ${config.minBet}` };
   }
 
-  // Kiểm tra số dư của tài khoản người chơi (admin được miễn phí/vô hạn số dư)
+  // Chống đặt cược muộn (Front-Running) khi ván đấu đã chạy hết thời gian
+  if (round.status === 'running' && round.endTime && Math.floor(Date.now() / 1000) >= round.endTime) {
+    return { success: false, message: 'Thời gian đặt cược của ván này đã kết thúc!' };
+  }
+
+  // Tài khoản Admin không được phép tham gia đặt cược
   const isAdmin = playerName && playerName.toLowerCase() === 'admin';
-  if (!isAdmin) {
-    const balance = getUserBalance(playerName);
-    if (balance < v) {
-      return { success: false, message: `Số dư tài khoản không đủ để đặt cược! Hiện tại bạn có ${balance.toLocaleString()} vàng.` };
-    }
+  if (isAdmin) {
+    return { success: false, message: 'Tài khoản Admin không được phép tham gia đặt cược!' };
+  }
+
+  const balance = getUserBalance(playerName);
+  if (balance < v) {
+    return { success: false, message: `Số dư tài khoản không đủ để đặt cược! Hiện tại bạn có ${balance.toLocaleString()} vàng.` };
   }
 
   let player = round.players.find(p => p.name === playerName);
   if (!player) {
-    player = { socketId, name: playerName, gold: 0, betCount: 0 };
+    player = { name: playerName, gold: 0, betCount: 0 };
     round.players.push(player);
   }
 
@@ -82,10 +89,8 @@ export function placeBet(playerName, socketId, amount) {
     return { success: false, message: 'Bạn chỉ được đặt cược tối đa 2 lần mỗi ván!' };
   }
 
-  // Khấu trừ vàng từ số dư tài khoản người chơi trong DB (admin không bị trừ)
-  if (!isAdmin) {
-    deductUserBalance(playerName, v);
-  }
+  // Khấu trừ vàng từ số dư tài khoản người chơi trong DB
+  deductUserBalance(playerName, v, 'bet');
 
   player.gold += v;
   player.betCount += 1;
@@ -129,7 +134,7 @@ export function resetRound(broadcastStateFn) {
   // Hoàn tiền đặt cược lại cho tất cả người chơi tham gia ván này
   for (const p of round.players) {
     if (p.gold > 0) {
-      addUserBalance(p.name, p.gold);
+      addUserBalance(p.name, p.gold, 'refund');
     }
   }
 
@@ -179,7 +184,7 @@ export function finishRound(broadcastStateFn, publishWinnerFn) {
 
   if (winner) {
     // Cộng thưởng toàn bộ Pot vàng cho người thắng cuộc
-    addUserBalance(winner.name, round.totalGold);
+    addUserBalance(winner.name, round.totalGold, 'win');
 
     round.lastWinner = winner.name;
     publishWinnerFn({

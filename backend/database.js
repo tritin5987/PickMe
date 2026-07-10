@@ -20,6 +20,7 @@ if (!existsSync(dbDir)) {
 
 // Khởi tạo Database
 const db = new Database(DB_PATH);
+db.run("PRAGMA foreign_keys = ON;");
 
 // Tạo bảng users
 db.run(`
@@ -50,6 +51,15 @@ db.run(`
   )
 `);
 
+db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);");
+
+// Dọn dẹp session cũ hơn 7 ngày khi khởi động
+try {
+  db.run("DELETE FROM sessions WHERE datetime(created_at) < datetime('now', '-7 days')");
+} catch (e) {
+  console.error("Lỗi dọn dẹp session cũ:", e);
+}
+
 // Tạo bảng configs
 db.run(`
   CREATE TABLE IF NOT EXISTS configs (
@@ -57,6 +67,21 @@ db.run(`
     value TEXT
   )
 `);
+
+// Tạo bảng transactions (sổ cái giao dịch)
+db.run(`
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    balance_before INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+db.run("CREATE INDEX IF NOT EXISTS idx_transactions_username ON transactions (username);");
 
 // Khởi tạo các cấu hình mặc định trong database
 const seedConfig = (key, val) => {
@@ -188,10 +213,24 @@ export function getUserBalance(username) {
   return row ? row.balance : 0;
 }
 
-export function deductUserBalance(username, amount) {
-  db.query("UPDATE users SET balance = balance - ? WHERE username = ?").run(amount, username);
+export function logTransaction(username, type, amount, balanceBefore, balanceAfter) {
+  db.query("INSERT INTO transactions (username, type, amount, balance_before, balance_after) VALUES (?, ?, ?, ?, ?)").run(username, type, amount, balanceBefore, balanceAfter);
 }
 
-export function addUserBalance(username, amount) {
+export function deductUserBalance(username, amount, type = 'bet') {
+  const before = getUserBalance(username);
+  db.query("UPDATE users SET balance = balance - ? WHERE username = ?").run(amount, username);
+  const after = getUserBalance(username);
+  logTransaction(username, type, amount, before, after);
+}
+
+export function addUserBalance(username, amount, type = 'refund') {
+  const before = getUserBalance(username);
   db.query("UPDATE users SET balance = balance + ? WHERE username = ?").run(amount, username);
+  const after = getUserBalance(username);
+  logTransaction(username, type, amount, before, after);
+}
+
+export function getTransactionHistory(username) {
+  return db.query("SELECT * FROM transactions WHERE username = ? ORDER BY id DESC").all(username);
 }
