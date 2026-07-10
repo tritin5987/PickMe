@@ -5,8 +5,15 @@ import { getDbConfigs, getUserBalance, deductUserBalance, addUserBalance } from 
 
 // Đọc cấu hình từ database
 const initialConfigs = getDbConfigs();
-const DEFAULT_MIN_BET = Number(initialConfigs.DEFAULT_MIN_BET || 10000);
-const DEFAULT_BET_DURATION = Number(initialConfigs.DEFAULT_BET_DURATION || 60);
+const DEFAULT_MIN_BET = Number(initialConfigs.DEFAULT_MIN_BET);
+const DEFAULT_BET_DURATION = Number(initialConfigs.DEFAULT_BET_DURATION);
+
+if (isNaN(DEFAULT_MIN_BET)) {
+  throw new Error("DEFAULT_MIN_BET is not defined or is not a valid number in database config!");
+}
+if (isNaN(DEFAULT_BET_DURATION)) {
+  throw new Error("DEFAULT_BET_DURATION is not defined or is not a valid number in database config!");
+}
 
 // --- Đường dẫn ghi log ---
 const DATA_DIR = join(import.meta.dir, '..', 'data');

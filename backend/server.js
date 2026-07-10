@@ -26,7 +26,10 @@ import {
 } from './game.js';
 
 // Đọc cấu hình từ environment variables
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT);
+if (isNaN(PORT)) {
+  throw new Error("PORT environment variable is not defined in .env!");
+}
 const isDev = process.argv.includes('--dev');
 
 // --- Tự động phát hiện IP LAN nội bộ ---

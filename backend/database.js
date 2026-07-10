@@ -2,9 +2,15 @@ import { Database } from 'bun:sqlite';
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
-// Đọc cấu hình từ environment variables
-const DB_PATH = process.env.DB_PATH || 'data/pickme.sqlite';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const DB_PATH = process.env.DB_PATH;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!DB_PATH) {
+  throw new Error("DB_PATH environment variable is not defined in .env!");
+}
+if (!ADMIN_PASSWORD) {
+  throw new Error("ADMIN_PASSWORD environment variable is not defined in .env!");
+}
 
 // Đảm bảo thư mục lưu trữ database tồn tại
 const dbDir = dirname(DB_PATH);
@@ -56,15 +62,25 @@ db.run(`
 const seedConfig = (key, val) => {
   db.query("INSERT OR IGNORE INTO configs (key, value) VALUES (?, ?)").run(key, String(val));
 };
-seedConfig("DEFAULT_MIN_BET", "10000");
-seedConfig("DEFAULT_BET_DURATION", "60");
-seedConfig("ADMIN_PASSWORD", "123321");
+if (!process.env.DEFAULT_MIN_BET) {
+  throw new Error("DEFAULT_MIN_BET environment variable is not defined in .env!");
+}
+if (!process.env.DEFAULT_BET_DURATION) {
+  throw new Error("DEFAULT_BET_DURATION environment variable is not defined in .env!");
+}
+
+seedConfig("DEFAULT_MIN_BET", process.env.DEFAULT_MIN_BET);
+seedConfig("DEFAULT_BET_DURATION", process.env.DEFAULT_BET_DURATION);
+seedConfig("ADMIN_PASSWORD", process.env.ADMIN_PASSWORD);
 
 // Tạo tài khoản admin mặc định dựa trên cấu hình database
 const seedAdmin = async () => {
   try {
     const adminPassRow = db.query("SELECT value FROM configs WHERE key = 'ADMIN_PASSWORD'").get();
-    const adminPassword = adminPassRow ? adminPassRow.value : '123321';
+    const adminPassword = adminPassRow ? adminPassRow.value : null;
+    if (!adminPassword) {
+      throw new Error("ADMIN_PASSWORD config is not defined in configs table!");
+    }
 
     const adminExists = db.query("SELECT 1 FROM users WHERE username = 'admin'").get();
     if (!adminExists) {
