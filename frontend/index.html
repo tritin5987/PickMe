@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pick Me Game (Realtime)</title>
+  
+  <!-- Premium Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Custom Style Sheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="layout">
+  <!-- MAIN CONTAINER (GAME AREA) -->
+  <main class="container">
+    <header class="app-header">
+      <h1>Pick Me Game</h1>
+      <span class="badge-realtime">● Realtime</span>
+    </header>
+
+    <!-- AUTHENTICATION CARD -->
+    <section class="card auth-card" id="authSection">
+      <!-- Unauthenticated State -->
+      <div id="unauthenticatedArea">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="authUsername">Tên tài khoản</label>
+            <input type="text" id="authUsername" placeholder="Nhập tên tài khoản">
+          </div>
+          <div class="form-group">
+            <label for="authPassword">Mật khẩu</label>
+            <input type="password" id="authPassword" placeholder="Tối thiểu 6 ký tự">
+          </div>
+        </div>
+        <div class="auth-buttons">
+          <button class="btn btn-primary" id="loginBtn">Đăng nhập</button>
+          <button class="btn btn-secondary" id="registerBtn">Đăng ký tài khoản</button>
+          <span id="authError" class="auth-error-msg"></span>
+        </div>
+      </div>
+
+      <!-- Authenticated State -->
+      <div id="authenticatedArea" style="display: none;">
+        <div class="user-profile-bar">
+          <div class="user-info">
+            <span class="user-label">Tài khoản:</span>
+            <span id="currentPlayerName" class="user-value highlight">chưa chọn</span>
+            <span class="user-label" style="margin-left: 12px;">Số dư:</span>
+            <span id="currentUserBalance" class="user-value highlight" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.25);">0</span>
+            <span class="user-label">vàng</span>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="changePasswordToggleBtn">Đổi mật khẩu</button>
+            <button class="btn btn-danger" id="logoutBtn">Đăng xuất</button>
+          </div>
+        </div>
+
+        <!-- Change Password Area -->
+        <div id="changePasswordArea" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="changePasswordOld">Mật khẩu cũ</label>
+              <input type="password" id="changePasswordOld" placeholder="Nhập mật khẩu cũ">
+            </div>
+            <div class="form-group">
+              <label for="changePasswordNew">Mật khẩu mới</label>
+              <input type="password" id="changePasswordNew" placeholder="Tối thiểu 6 ký tự">
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="changePasswordSubmitBtn">Xác nhận đổi</button>
+            <button class="btn btn-secondary" id="changePasswordCancelBtn">Hủy</button>
+            <span id="changePasswordStatus" style="font-size: 13px; font-weight: bold;"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BETTING FORM -->
+    <section class="card bet-card">
+      <div class="bet-grid">
+        <div class="form-group">
+          <label for="betAmount">Số vàng muốn đặt</label>
+          <input type="number" id="betAmount" min="10000" step="1" value="10000">
+        </div>
+        <div class="bet-action">
+          <button class="btn btn-primary" id="betBtn">Đặt vàng</button>
+        </div>
+      </div>
+      <p class="card-note">
+        ⚠️ Mỗi người chơi đặt tối đa 2 lần trong cùng một ván, số vàng đặt sẽ được cộng dồn.
+      </p>
+      <div id="betError" style="display: none;" class="inline-error-banner"></div>
+    </section>
+
+    <!-- GAME DETAILS / STATISTICS -->
+    <section class="card stats-card">
+      <div class="previous-winner">
+        <strong>Người chơi may mắn ván trước:</strong>
+        <span id="lastWinner" class="badge-winner">chưa có</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box" id="stat-pot">
+          <span class="stat-label">Tổng số vàng (Pot)</span>
+          <span id="totalGold" class="stat-value text-gold">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Tổng số người chơi</span>
+          <span id="totalPlayers" class="stat-value">0</span>
+        </div>
+        <div class="stat-box" id="stat-my-gold">
+          <span class="stat-label">Số vàng bạn đã đặt</span>
+          <span id="myGold" class="stat-value text-blue">0</span>
+        </div>
+        <div class="stat-box" id="stat-my-chance">
+          <span class="stat-label">Xác suất trúng của bạn</span>
+          <span id="myChance" class="stat-value text-green">0.00%</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Thời gian trả kết quả</span>
+          <span id="timeRemaining" class="stat-value text-orange">chưa bắt đầu</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Trạng thái ván</span>
+          <span id="roundStatus" class="stat-value text-gray">Đang chờ đủ người...</span>
+        </div>
+      </div>
+
+      <div class="winner-toast" id="winnerMessage"></div>
+    </section>
+
+    <!-- PLAYERS TABLE LIST -->
+    <section class="card table-card">
+      <h2 class="section-title">Danh sách người chơi trong ván</h2>
+      <div class="table-responsive">
+        <table class="players-table">
+          <thead>
+            <tr>
+              <th style="width: 60px;">#</th>
+              <th>Tên người chơi</th>
+              <th class="admin-only-col" style="text-align: right;">Số vàng</th>
+              <th class="admin-only-col" style="text-align: right; width: 140px;">Tỉ lệ thắng (%)</th>
+            </tr>
+          </thead>
+          <tbody id="playersTableBody">
+            <!-- Rendered Dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ADMIN SIDEBAR CONTROL PANEL -->
+  <aside class="admin-panel" id="adminPanel">
+    <header class="admin-header">
+      <h2>⚙ Bảng điều khiển Admin</h2>
+    </header>
+
+    <!-- Tabs Header -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" data-tab="config">⚙ Cấu hình</button>
+      <button class="admin-tab-btn" data-tab="players">👥 Người chơi</button>
+      <button class="admin-tab-btn" data-tab="connections">🔗 Kết nối</button>
+    </div>
+
+    <div class="admin-sections-grid">
+      <!-- TAB: CẤU HÌNH -->
+      <div class="admin-tab-content active" id="tab-config">
+        <!-- Config Inputs -->
+        <div class="card admin-subcard">
+          <div class="form-group">
+            <label for="configDuration">Thời gian mỗi ván (giây)</label>
+            <input type="number" id="configDuration" min="5" value="60">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label for="configMinBet">Mức đặt cược tối thiểu (min bet)</label>
+            <input type="number" id="configMinBet" min="1" value="1">
+          </div>
+          <button class="btn btn-primary btn-block" id="saveConfigBtn" style="margin-top: 14px;">Lưu cấu hình</button>
+          <button class="btn btn-danger btn-block" id="resetRoundBtn" style="margin-top: 8px;">Xóa ván hiện tại</button>
+          <p class="admin-note" style="margin-top: 10px;">
+            • Thời gian mới áp dụng cho các ván tiếp theo.<br>
+            • Mức min bet mới áp dụng ngay lập tức.
+          </p>
+        </div>
+      </div>
+
+      <!-- TAB: NGƯỜI CHƠI -->
+      <div class="admin-tab-content" id="tab-players">
+        <!-- Add Balance Section -->
+        <div class="card admin-subcard">
+          <h3>💰 Cộng số dư người chơi</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <div class="form-group">
+              <label for="adminAddBalanceUsername">Tên tài khoản</label>
+              <input type="text" id="adminAddBalanceUsername" placeholder="Nhập tên tài khoản">
+            </div>
+            <div class="form-group">
+              <label for="adminAddBalanceAmount">Số vàng muốn cộng</label>
+              <input type="number" id="adminAddBalanceAmount" min="1" placeholder="Ví dụ: 50000">
+            </div>
+            <button class="btn btn-success btn-block" id="adminAddBalanceBtn">Cộng số dư</button>
+            <span id="adminAddBalanceStatus" class="admin-status-msg"></span>
+          </div>
+        </div>
+
+        <!-- Reset Password -->
+        <div class="card admin-subcard">
+          <h3>🔑 Cấp lại mật khẩu người chơi</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+            <div class="form-group">
+              <label for="adminResetUsername">Tên tài khoản</label>
+              <input type="text" id="adminResetUsername" placeholder="Nhập tên tài khoản">
+            </div>
+            <div class="form-group">
+              <label for="adminResetPassword">Mật khẩu mới</label>
+              <input type="password" id="adminResetPassword" placeholder="Nhập mật khẩu mới">
+            </div>
+            <button class="btn btn-primary btn-block" id="adminResetPasswordBtn">Cập nhật mật khẩu</button>
+            <span id="adminResetStatus" class="admin-status-msg"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: KẾT NỐI -->
+      <div class="admin-tab-content" id="tab-connections">
+        <!-- Connection URLs -->
+        <div class="card admin-subcard">
+          <div class="form-group">
+            <label for="serverIpUrl">Link mạng nội bộ (LAN)</label>
+            <div class="input-with-button">
+              <input type="text" id="serverIpUrl" readonly>
+              <button class="btn btn-success" id="copyIpBtn">Copy</button>
+            </div>
+            <p class="admin-note">Gửi link này cho người chơi khác chung mạng Wifi/LAN.</p>
+          </div>
+        </div>
+
+        <div class="card admin-subcard" id="tunnelCard" style="display: none;">
+          <div class="form-group">
+            <label for="serverTunnelUrl">Link chơi qua Internet (WAN)</label>
+            <div class="input-with-button">
+              <input type="text" id="serverTunnelUrl" readonly>
+              <button class="btn btn-success" id="copyTunnelBtn">Copy</button>
+            </div>
+            <p class="admin-note">Gửi link này cho người chơi ngoài mạng LAN.</p>
+          </div>
+        </div>
+
+        <!-- Rules details -->
+        <div class="card admin-subcard rule-details-card">
+          <strong>Nguyên lý hoạt động:</strong>
+          <ul style="margin: 6px 0 0 16px; padding: 0;">
+            <li>Cần tối thiểu 2 người tham gia đặt cược để bắt đầu đếm ngược.</li>
+            <li>Người chiến thắng được lựa chọn bằng thuật toán CSPRNG ngẫu nhiên bảo mật.</li>
+            <li>Tỷ lệ thắng tỷ lệ thuận tuyến tính với số vàng đặt.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Core Script -->
+<script src="app.js"></script>
+</body>
+</html>

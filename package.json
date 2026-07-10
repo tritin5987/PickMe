@@ -1,17 +1,20 @@
 {
   "name": "test",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "backend/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "bun backend/server.js",
+    "dev": "bun --watch backend/server.js --dev",
+    "tunnel:lt": "lt --port 3000",
+    "tunnel:ngrok": "\"C:\\Users\\DuongTri\\AppData\\Local\\Microsoft\\WinGet\\Links\\ngrok.exe\" http 3000"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
-    "express": "^5.1.0",
-    "socket.io": "^4.8.1"
+  "dependencies": {},
+  "devDependencies": {
+    "localtunnel": "^2.0.2"
   }
 }
